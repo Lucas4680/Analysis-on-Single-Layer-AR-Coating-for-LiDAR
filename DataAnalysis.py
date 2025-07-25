@@ -1,6 +1,10 @@
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.interpolate import griddata
+from scipy.ndimage import gaussian_filter
+from mpl_toolkits.mplot3d import Axes3D
+from scipy.interpolate import RectBivariateSpline
 
 
 paths = ["Control.mat", "MgF2.mat", "SiO2.mat", "ZrO2.mat"]
@@ -13,12 +17,12 @@ Data_Matrix = []
 Thickness_Values = []
 Wavelengths = []
 
-print(paths[3])
+##print(paths[3])
 for i in [1,2,3]:
-    print('hallo')
+    #print('hallo')
     with h5py.File(paths[i], 'r') as f:
-        # Optional: Print all available variable names
-        print("Available variables:")
+        # Optional: ##print all available variable names
+        ##print("Available variables:")
         for key in f.keys():
             print(f" - {key}")
 
@@ -31,22 +35,22 @@ for i in [1,2,3]:
         Thickness_Values = f['thickness_values'][()]
         Wavelengths = f['wavelengths'][()]
 
-print("okeh")
-print(len(Data_Matrix))
-print(len(Data_Matrix[0]))
-print(len(Data_Matrix[0][0]))
-print(len(Data_Matrix[0][0][0]))
+##print("okeh")
+##print(len(Data_Matrix))
+##print(len(Data_Matrix[0]))
+##print(len(Data_Matrix[0][0]))
+##print(len(Data_Matrix[0][0][0]))
 
 Thickness_Values = Thickness_Values[0]
 Wavelengths = Wavelengths[0]
 Angle_Values = Angle_Values[0]
-print("Thickness values")
-print(type(Thickness_Values))
-print(Thickness_Values)
-print("Wavelength values")
-print(Wavelengths)
-print("Angle values")
-print(Angle_Values)
+##print("Thickness values")
+##print(type(Thickness_Values))
+##print(Thickness_Values)
+##print("Wavelength values")
+##print(Wavelengths)
+##print("Angle values")
+##print(Angle_Values)
 
 
 Data_Matrix =  [
@@ -65,16 +69,21 @@ Data_Matrix =  [
 
 #Data_Matrix[0] = [Data_Matrix[0] for _ in range(33)]
 
-print("hi")
-print(len(Data_Matrix))
-print(len(Data_Matrix[0]))
-print(len(Data_Matrix[0][0]))
-print(len(Data_Matrix[0][0][0]))
-print("vs")
-print(len(Data_Matrix))
-print(len(Data_Matrix[1]))
-print(len(Data_Matrix[1][0]))
-print(len(Data_Matrix[1][0][0]))
+##print("hi")
+##print(len(Data_Matrix))
+##print(len(Data_Matrix[0]))
+##print(len(Data_Matrix[0][0]))
+##print(len(Data_Matrix[0][0][0]))
+##print("vs")
+##print(len(Data_Matrix))
+##print(len(Data_Matrix[1]))
+##print(len(Data_Matrix[1][0]))
+##print(len(Data_Matrix[1][0][0]))
+##print("vs")
+##print(len(Data_Matrix))
+##print(len(Data_Matrix[2]))
+##print(len(Data_Matrix[2][0]))
+##print(len(Data_Matrix[2][0][0]))
 
 
 
@@ -86,14 +95,22 @@ def MaxPowerPerThickness(Material):
         list.append(max(i[0]))
     return list
 
-print(len(MaxPowerPerThickness(1)))
+##print(len(MaxPowerPerThickness(1)))
 
 for i in range(0,3):
-    plt.plot(Thickness_Values, MaxPowerPerThickness(i), label=(Materials[i] + ': Max Power'), color=Colors[i], linestyle='-')
-plt.savefig("Thickness vs. Power.png")
+    plt.plot(Thickness_Values, MaxPowerPerThickness(i), label=(Materials[i+1]), color=Colors[i], linestyle='-')
+
+
+plt.xlabel('Thickness (m)')
+plt.ylabel('Power')
+plt.legend()
+plt.tight_layout()
+plt.title('Thickness vs. Power (All 4)')
+plt.savefig("Thickness vs. Power (All 4).png")
 
 # ------------------- Angle & Thickness vs. Power -------------------------
 def MaxPowerPerAngleAndThickness(Material, Angle, Thickness):
+    ###print(max(Data_Matrix[Material][Thickness][Angle]))
     return max(Data_Matrix[Material][Thickness][Angle])
 
 List = []
@@ -101,19 +118,117 @@ for i in range(len(Thickness_Values)):
     for j in range(len(Angle_Values)):
         List.append([Thickness_Values[i],Angle_Values[j],MaxPowerPerAngleAndThickness(2,j,i)])
 
-print("hi" + str(MaxPowerPerAngleAndThickness(0,0,0)))
-data = np.array(List)
+##print("hi" + str(MaxPowerPerAngleAndThickness(0,0,0)))
 
+
+
+
+data = np.array(List)  # Replace with your actual data variable
 x = data[:, 0]
 y = data[:, 1]
 z = data[:, 2]
 
+# --- Step 2: Create 2D grid ---
+x_unique = np.unique(x)
+y_unique = np.unique(y)
 
-plt.tricontourf(x,y,z, levels=100, cmap='viridis') # 'viridis' colormap, 'lower' origin for y-axis
-plt.colorbar(label='Intensity') # Add a colorbar to show the intensity scale
-plt.title('2D Color Intensity Plot')
-plt.xlabel('Thickness')
-plt.ylabel('Angle')
+X, Y = np.meshgrid(x_unique, y_unique)
+Z = np.full_like(X, np.nan, dtype=np.float64)
+
+for xi, yi, zi in zip(x, y, z):
+    x_idx = np.where(x_unique == xi)[0][0]
+    y_idx = np.where(y_unique == yi)[0][0]
+    Z[y_idx, x_idx] = zi  # row = y index, col = x index
+
+# --- Step 3: Interpolate to higher resolution grid ---
+interp = RectBivariateSpline(y_unique, x_unique, Z)
+
+# Create finer grid
+x_fine = np.linspace(x_unique.min(), x_unique.max(), 600)
+y_fine = np.linspace(y_unique.min(), y_unique.max(), 600)
+Z_fine = interp(y_fine, x_fine)
+
+# --- Step 4: Plot the smooth heatmap ---
+plt.figure(figsize=(8, 6))
+plt.imshow(Z_fine, extent=(x_unique.min(), x_unique.max(), y_unique.min(), y_unique.max()),
+           origin='lower', aspect='auto', cmap='viridis')
+#plt.scatter(x, y, c=z, cmap='viridis', s=40, edgecolors='white', linewidth=0.8, zorder=4)
+plt.colorbar(label='Intensity')
+plt.xlabel('Thickness (m)')
+plt.ylabel('Incident Angle (°)')
+plt.title('ZrO2: Thickness, Incidence Angle vs. Max Power')
+plt.tight_layout()
 plt.show()
-plt.savefig("Angle & Thickness vs. Power Heatmap.png")
+plt.savefig("ZrO2: Thickness, Incidence Angle vs. Max Power.png")
 
+
+#---------------- Thickness and Angle vs Spread --------------------
+def spectral_spread_fixed_center(wavelengths, intensities, center=905e-9, window=3e-9):
+    # Ensure input arrays are NumPy arrays
+    wavelengths = np.asarray(wavelengths)
+    intensities = np.asarray(intensities)
+
+    # Select range around center
+    mask = (wavelengths >= center - window) & (wavelengths <= center + window)
+    wl = wavelengths[mask]
+    inten = intensities[mask]
+    
+    if len(wl) == 0:
+        raise ValueError("No wavelengths within specified window.")
+
+    # Normalize intensities
+    p = inten / np.sum(inten)
+
+    # Weighted spread around center wavelength
+    spread = np.sqrt(np.sum(p * (wl - center)**2))
+    return spread
+
+def SpectralSpreadAtThicknessAndAngle(Material, Angle, Thickness):
+    return max(Data_Matrix[Material][Thickness][Angle])
+
+print(Wavelengths)
+List = []
+for i in range(len(Thickness_Values)):
+    for j in range(len(Angle_Values)):
+        List.append([Thickness_Values[i],Angle_Values[j],spectral_spread_fixed_center(Wavelengths,Data_Matrix[0][i][j])])
+
+
+
+
+data = np.array(List)  # Replace with your actual data variable
+x = data[:, 0]
+y = data[:, 1]
+z = data[:, 2]
+
+# --- Step 2: Create 2D grid ---
+x_unique = np.unique(x)
+y_unique = np.unique(y)
+
+X, Y = np.meshgrid(x_unique, y_unique)
+Z = np.full_like(X, np.nan, dtype=np.float64)
+
+for xi, yi, zi in zip(x, y, z):
+    x_idx = np.where(x_unique == xi)[0][0]
+    y_idx = np.where(y_unique == yi)[0][0]
+    Z[y_idx, x_idx] = zi  # row = y index, col = x index
+
+# --- Step 3: Interpolate to higher resolution grid ---
+interp = RectBivariateSpline(y_unique, x_unique, Z)
+
+# Create finer grid
+x_fine = np.linspace(x_unique.min(), x_unique.max(), 600)
+y_fine = np.linspace(y_unique.min(), y_unique.max(), 600)
+Z_fine = interp(y_fine, x_fine)
+
+# --- Step 4: Plot the smooth heatmap ---
+plt.figure(figsize=(8, 6))
+plt.imshow(Z_fine, extent=(x_unique.min(), x_unique.max(), y_unique.min(), y_unique.max()),
+           origin='lower', aspect='auto', cmap='viridis')
+#plt.scatter(x, y, c=z, cmap='viridis', s=40, edgecolors='white', linewidth=0.8, zorder=4)
+plt.colorbar(label='Spread')
+plt.xlabel('Thickness (m)')
+plt.ylabel('Incident Angle (°)')
+plt.title('MgF2: Thickness, Incidence Angle vs. Spectral Spread')
+plt.tight_layout()
+plt.show()
+plt.savefig("MgF2: Thickness, Incidence Angle vs. Spectral Spread.png")

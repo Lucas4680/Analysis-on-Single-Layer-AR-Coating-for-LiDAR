@@ -29,3 +29,4 @@ print("First angle, all wavelengths:", matrix[0, :])
 print("First angle's first wavelength power:", matrix[0, 0])
 
 print(matrix.shape)
+print(max(matrix[0]))
