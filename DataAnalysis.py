@@ -5,7 +5,7 @@ from scipy.interpolate import griddata
 from scipy.ndimage import gaussian_filter
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.interpolate import RectBivariateSpline
-
+from control_transform import matrix
 
 paths = ["Control.mat", "MgF2.mat", "SiO2.mat", "ZrO2.mat"]
 
@@ -103,6 +103,9 @@ for i in range(0,3):
     plt.plot(Thickness_Values, MaxPowerPerThickness(i), label=(Materials[i+1]), color=Colors[i+1], linestyle='-')
 
 plt.plot(Thickness_Values, control_power_points, label="Control", color="black", linestyle="--")
+plt.plot(80e-9, 0.00059203, 'ro')
+plt.plot(150e-9, 0.000526959, 'ro')
+plt.plot(150e-9, 0.0005133519, 'ro')
 plt.xlabel('Thickness (m)')
 plt.ylabel('Power')
 plt.legend()
@@ -264,35 +267,66 @@ plt.title('Thickness vs. Power, Spectral Spread (All Materials)')
 plt.savefig("Thickness vs. Power, Spectral Spread (All Materials).png")
 
 
-#---------------- Angle & Wavelength vs Spread --------------------
-def spectral_spread_fixed_center(wavelengths, intensities, center=905e-9, window=3e-9):
-    # Ensure input arrays are NumPy arrays
-    wavelengths = np.asarray(wavelengths)
-    intensities = np.asarray(intensities)
+# ------------------------------- Optimal Thicknesses -------------------------------
+def FindBestThickness(Material):
+    Best = 0
+    Power = 0
+    Index = 0
+    a = 0
+    for i in Data_Matrix[Material]:
+        if max(i[0]) > Best:
+            Best = max(i[0]) # HERERERHEREHHERHEHERHER
+            Index = a
+        a+=1
+    List = []
+    List.append(Index)
+    List.append(Best)
+    return List
+OptimalThicknesses = [["MgF2", Thickness_Values[FindBestThickness(0)[0]] * 1000000000, FindBestThickness(0)[1] * 100000],
+                      ["SiO2", Thickness_Values[FindBestThickness(1)[0]] * 1000000000, FindBestThickness(1)[1] * 100000],
+                      ["ZrO2", Thickness_Values[FindBestThickness(2)[0]] * 1000000000, FindBestThickness(2)[1] * 100000]
+                      ]
 
-    # Select range around center
-    mask = (wavelengths >= center - window) & (wavelengths <= center + window)
-    wl = wavelengths[mask]
-    inten = intensities[mask]
+columns = ['Material', 'Thickness (nm)', 'Power at Normal Angle']
+
+fig, ax = plt.subplots(figsize=(6, 2)) 
+table = ax.table(cellText=OptimalThicknesses, colLabels=columns, loc='center', cellLoc="left", colLoc="left",bbox=[0, 0, 1, 0.9])
+ax.axis('off')  
+plt.title("Optimal Thickness Table",)
+plt.show()
+plt.tight_layout()
+plt.savefig("Optimal Thickness Table (All Materials)")
+# Add table
+
+#---------------- Optimal Thickness: Angle & Wavelength vs Spread --------------------
+# def spectral_spread_fixed_center(wavelengths, intensities, center=905e-9, window=3e-9):
+#     # Ensure input arrays are NumPy arrays
+#     wavelengths = np.asarray(wavelengths)
+#     intensities = np.asarray(intensities)
+
+#     # Select range around center
+#     mask = (wavelengths >= center - window) & (wavelengths <= center + window)
+#     wl = wavelengths[mask]
+#     inten = intensities[mask]
     
-    if len(wl) == 0:
-        raise ValueError("No wavelengths within specified window.")
+#     if len(wl) == 0:
+#         raise ValueError("No wavelengths within specified window.")
 
-    # Normalize intensities
-    p = inten / np.sum(inten)
+#     # Normalize intensities
+#     p = inten / np.sum(inten)
 
-    # Weighted spread around center wavelength
-    spread = np.sqrt(np.sum(p * (wl - center)**2))
-    return spread
+#     # Weighted spread around center wavelength
+#     spread = np.sqrt(np.sum(p * (wl - center)**2))
+#     return spread
 
 def SpectralSpreadAtThicknessAndAngle(Material, Angle, Thickness):
     return max(Data_Matrix[Material][Thickness][Angle])
 
-print(Wavelengths)
+print("DEEDY BLAD", Thickness_Values[20])
 List = []
-for i in range(len(Thickness_Values)):
-    for j in range(len(Angle_Values)):
-        List.append([Thickness_Values[i],Angle_Values[j],spectral_spread_fixed_center(Wavelengths,Data_Matrix[0][i][j])])
+for i in range(len(Angle_Values)):
+    for j in range(len(Wavelengths)):
+        List.append([Angle_Values[i],Wavelengths[j],Data_Matrix[2][20][i][j]])
 
 
 
@@ -328,9 +362,30 @@ plt.imshow(Z_fine, extent=(x_unique.min(), x_unique.max(), y_unique.min(), y_uni
            origin='lower', aspect='auto', cmap='viridis')
 #plt.scatter(x, y, c=z, cmap='viridis', s=40, edgecolors='white', linewidth=0.8, zorder=4)
 plt.colorbar(label='Spread')
-plt.xlabel('Thickness (m)')
-plt.ylabel('Incident Angle (°)')
-plt.title('MgF2: Thickness, Incidence Angle vs. Spectral Spread')
+plt.xlabel('Incident Angle (°)')
+plt.ylabel('Wavelength (nm)')
+plt.title('ZrO2: Incident Angle, Wavelengh vs. Power')
 plt.tight_layout()
 plt.show()
-plt.savefig("MgF2: Thickness, Incidence Angle vs. Spectral Spread.png")
+plt.savefig("ZrO2: Incident Angle, Wavelengh vs. Power.png")
+
+# -------------------------- Blue/Red shift -------------------------------
+
+
+print("SNEAKY GOLEM: " + str(Wavelengths))
+print("shibai sekyaa: " + str(np.array(Data_Matrix[0][20][0])))
+print("skibidi: " + str(Wavelengths.shape))
+
+print("x shape:", np.array(Wavelengths).shape)
+print("y shape:", np.array(Data_Matrix[0][20][0]).shape)
+
+plt.clf()
+plt.plot(Wavelengths, (np.array(Data_Matrix[0][20][0]) - np.array(Data_Matrix[0][20][0]).min()) / (np.array(Data_Matrix[0][20][0]).max() - np.array(Data_Matrix[0][20][0]).min()), color="blue", label="MgF2", linestyle="-")
+plt.plot(Wavelengths, (np.array(Data_Matrix[1][20][0]) - np.array(Data_Matrix[1][20][0]).min()) / (np.array(Data_Matrix[1][20][0]).max() - np.array(Data_Matrix[1][20][0]).min()), color="orange", label="SiO2", linestyle="-")
+plt.plot(Wavelengths, (np.array(Data_Matrix[2][20][0]) - np.array(Data_Matrix[2][20][0]).min()) / (np.array(Data_Matrix[2][20][0]).max() - np.array(Data_Matrix[2][20][0]).min()), color="green", label="ZrO2", linestyle="-")
+plt.plot(Wavelengths, (matrix[0] - matrix[0]) / (matrix[0].max() - matrix[0].min()), color="black", label="Control", linestyle=":")
+plt.title("Intensity of Wavelengths")
+plt.legend()
+plt.xlabel("Wavelengths (m)")
+plt.ylabel("Power")
+plt.savefig("Intensity of Wavelengths (All Materials vs. Control).png")
